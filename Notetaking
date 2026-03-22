@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StudyHub - Autonomous AI Notebook</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap");
+
+      body {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        background-color: #f8fafc;
+        overflow: hidden;
+      }
+
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      input:focus,
+      textarea:focus {
+        outline: none;
+      }
+
+      .loading-shimmer {
+        background: linear-gradient(
+          90deg,
+          #f1f5f9 25%,
+          #e2e8f0 50%,
+          #f1f5f9 75%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+      }
+
+      @keyframes shimmer {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
+
+      .ai-glow {
+        box-shadow: 0 0 15px rgba(79, 70, 229, 0.4);
+        animation: pulse-glow 2s infinite;
+      }
+
+      @keyframes pulse-glow {
+        0%,
+        100% {
+          box-shadow: 0 0 5px rgba(79, 70, 229, 0.2);
+        }
+        50% {
+          box-shadow: 0 0 20px rgba(79, 70, 229, 0.5);
+        }
+      }
+
+      .insight-card {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .insight-card:hover {
+        transform: translateY(-2px);
+        border-color: #cbd5e1;
+      }
+
+      .engine-active {
+        border: 2px solid #6366f1 !important;
+        box-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
+      }
+    </style>
+  </head>
+  <body class="text-slate-900">
+    <div class="flex h-screen overflow-hidden">
+      <!-- SIDEBAR -->
+      <aside
+        id="sidebar"
+        class="fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-slate-200 transform -translate-x-full transition-transform duration-300 md:relative md:translate-x-0 flex flex-col"
+      >
+        <div class="p-6 flex-1 overflow-y-auto scrollbar-hide">
+          <div class="flex items-center gap-3 mb-8">
+            <div
+              class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-lg"
+            >
+              <i class="fas fa-graduation-cap"></i>
+            </div>
+            <span class="text-lg font-extrabold tracking-tight italic"
+              >STUDY<span class="text-indigo-600">HUB</span></span
+            >
+          </div>
+
+          <button
+            onclick="openEditor()"
+            class="w-full bg-slate-900 hover:bg-slate-800 text-white py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 font-bold text-sm mb-8 shadow-md"
+          >
+            <i class="fas fa-plus"></i> New Note
+          </button>
+
+          <nav class="space-y-1">
+            <p
+              class="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 mb-2"
+            >
+              Filters
+            </p>
+            <button
+              onclick="filterCategory('All Notes')"
+              class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors bg-indigo-50 text-indigo-700"
+              id="cat-all"
+            >
+              <i class="fas fa-layer-group text-xs"></i> All Notes
+            </button>
+            <div id="category-list" class="pt-2"></div>
+          </nav>
+        </div>
+
+        <div class="p-6 border-t border-slate-100 bg-slate-50/50">
+          <div
+            class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm"
+          >
+            <div class="flex items-center gap-2 mb-2">
+              <div
+                class="w-2 h-2 rounded-full bg-green-500 animate-pulse"
+              ></div>
+              <p class="text-[10px] font-bold text-slate-500 uppercase">
+                Engine Online
+              </p>
+            </div>
+            <p class="text-[11px] text-slate-600 leading-relaxed font-medium">
+              Autonomous sorting and AI contextual logic ready.
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- MAIN VIEW -->
+      <main class="flex-1 flex flex-col min-w-0 bg-slate-50/30">
+        <header
+          class="h-16 px-6 flex items-center justify-between border-b border-slate-100 bg-white z-30"
+        >
+          <div class="flex items-center gap-4">
+            <button class="md:hidden text-slate-600" onclick="toggleSidebar()">
+              <i class="fas fa-bars"></i>
+            </button>
+            <h2
+              id="current-category-label"
+              class="text-sm font-black text-slate-400 uppercase tracking-widest"
+            >
+              Workspace
+            </h2>
+          </div>
+
+          <div class="flex items-center gap-4">
+            <div class="relative hidden sm:block">
+              <i
+                class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"
+              ></i>
+              <input
+                type="text"
+                id="search-input"
+                oninput="renderNotes()"
+                placeholder="Search knowledge..."
+                class="pl-9 pr-4 py-1.5 bg-slate-100 border-none rounded-full text-xs focus:ring-2 focus:ring-indigo-100 w-64 transition-all outline-none"
+              />
+            </div>
+          </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-6 md:p-10 scrollbar-hide">
+          <div
+            id="notes-grid"
+            class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+          ></div>
+        </div>
+      </main>
+    </div>
+
+    <!-- EDITOR MODAL -->
+    <div
+      id="editor-modal"
+      class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center md:p-6 lg:p-12"
+    >
+      <div
+        class="bg-white w-full h-full md:rounded-3xl shadow-2xl flex flex-col overflow-hidden max-w-7xl animate-in fade-in zoom-in duration-300"
+      >
+        <header
+          class="h-16 px-8 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white"
+        >
+          <div class="flex items-center gap-6">
+            <button
+              onclick="closeEditor()"
+              class="text-slate-400 hover:text-slate-900 transition-colors"
+            >
+              <i class="fas fa-chevron-left"></i>
+            </button>
+            <div class="h-4 w-[1px] bg-slate-200"></div>
+            <span
+              id="ai-status"
+              class="text-[10px] font-black text-indigo-600 uppercase tracking-widest"
+              >Cognitive Engine Standby</span
+            >
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button
+              id="ai-insight-btn"
+              onclick="aiExtendContext()"
+              class="bg-amber-50 text-amber-700 py-2 px-4 rounded-xl text-xs font-bold hover:bg-amber-100 transition-all flex items-center gap-2"
+            >
+              <i class="fas fa-wand-magic-sparkles"></i> AI Contextual Add
+            </button>
+            <button
+              id="ai-process-btn"
+              onclick="aiAutonomousSort()"
+              class="bg-indigo-600 text-white py-2 px-6 rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-lg shadow-indigo-100 ai-glow"
+            >
+              <i class="fas fa-bolt"></i> Autonomous Fix & Sort
+            </button>
+            <button
+              onclick="closeEditor()"
+              class="bg-slate-900 text-white py-2 px-6 rounded-xl text-xs font-bold hover:bg-slate-800 transition-all"
+            >
+              Save Note
+            </button>
+          </div>
+        </header>
+
+        <div class="flex-1 flex overflow-hidden">
+          <!-- Editor Side -->
+          <div
+            id="editor-container"
+            class="flex-1 overflow-y-auto p-8 md:p-16 space-y-8 bg-white transition-all duration-500 border-r border-slate-50 relative"
+          >
+            <div class="space-y-4">
+              <input
+                type="text"
+                id="note-category"
+                oninput="syncRealTime()"
+                placeholder="SUBJECT"
+                class="text-xs font-black text-indigo-500 uppercase tracking-[0.2em] w-full border-none"
+              />
+              <input
+                type="text"
+                id="note-title"
+                oninput="syncRealTime()"
+                placeholder="Note Title"
+                class="w-full text-5xl font-black border-none text-slate-900 placeholder-slate-100 leading-tight"
+              />
+            </div>
+
+            <textarea
+              id="note-content"
+              oninput="syncRealTime()"
+              placeholder="Type raw notes here for the engine to sort..."
+              class="w-full min-h-[50vh] border-none text-xl text-slate-600 placeholder-slate-100 resize-none leading-relaxed"
+            ></textarea>
+          </div>
+
+          <!-- AI Insights Panel -->
+          <div
+            id="insights-panel"
+            class="w-96 bg-slate-50/50 overflow-y-auto p-8 shrink-0 border-l border-slate-100 hidden lg:block"
+          >
+            <h4
+              class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-8 flex items-center gap-2"
+            >
+              <i class="fas fa-brain text-indigo-500"></i> Engine Insights
+            </h4>
+
+            <div id="insights-content" class="space-y-6">
+              <div
+                class="text-center py-20 px-4 border-2 border-dashed border-slate-200 rounded-3xl opacity-40"
+              >
+                <i
+                  class="fas fa-microchip text-3xl mb-4 block text-slate-300"
+                ></i>
+                <p
+                  class="text-[10px] font-bold uppercase tracking-wider text-slate-400"
+                >
+                  Trigger AI to analyze context
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // API Key for OpenAI Engine
+      const apiKey =
+        "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";
+
+      let notes = JSON.parse(localStorage.getItem("studyhub_v10")) || [];
+      let currentNote = null;
+      let activeCategory = "All Notes";
+      let isProcessing = false;
+
+      /**
+       * AUTONOMOUS ENGINE: Logic for Sorting and Fixing Bullets
+       */
+      async function aiAutonomousSort() {
+        if (isProcessing) return;
+        const contentField = document.getElementById("note-content");
+        const rawText = contentField.value.trim();
+        if (!rawText) return;
+
+        setEngineState(true, "Engine Refactoring...");
+
+        const systemPrompt =
+          "You are an autonomous formatting engine. Your goal is to take raw, messy text and output perfectly organized markdown bullet points. Use '-' for bullets. Fix all grammar and spelling. Group related concepts under bold headers if appropriate.";
+        const userPrompt = `Refactor these notes into professional bullet forms: \n\n${rawText}`;
+
+        try {
+          const response = await callOpenAI(userPrompt, systemPrompt);
+          contentField.value = response.trim();
+          syncRealTime();
+          document.getElementById("ai-status").innerText = "Sorting Complete";
+        } catch (err) {
+          document.getElementById("ai-status").innerText = "Engine Error";
+        } finally {
+          setEngineState(false);
+        }
+      }
+
+      /**
+       * AI ENGINE: Research and Context Addition
+       */
+      async function aiExtendContext() {
+        if (isProcessing) return;
+        const contentField = document.getElementById("note-content");
+        const text = contentField.value.trim();
+        if (!text) return;
+
+        setEngineState(true, "AI Researching Context...");
+
+        const systemPrompt =
+          "Analyze the user notes and provide additional academic research context. Output as a JSON object with: summary (string), subject (string), facts (array), and exam_questions (array).";
+        const userPrompt = `Add context to these notes: \n\n${text}`;
+
+        try {
+          const response = await callOpenAI(userPrompt, systemPrompt, true);
+          const data = JSON.parse(response);
+
+          // Auto-categorize based on AI research
+          if (data.subject)
+            document.getElementById("note-category").value =
+              data.subject.toUpperCase();
+
+          currentNote.aiInsights = data;
+          renderInsights(data);
+          syncRealTime();
+          document.getElementById("ai-status").innerText = "Research Added";
+        } catch (err) {
+          document.getElementById("ai-status").innerText = "Research Failed";
+        } finally {
+          setEngineState(false);
+        }
+      }
+
+      async function callOpenAI(prompt, system, isJson = false) {
+        const response = await fetch(
+          "https://api.openai.com/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: system },
+                { role: "user", content: prompt },
+              ],
+              response_format: isJson ? { type: "json_object" } : undefined,
+              temperature: 0.2,
+            }),
+          }
+        );
+        const data = await response.json();
+        if (data.error) throw new Error(data.error.message);
+        return data.choices[0].message.content;
+      }
+
+      function renderInsights(data) {
+        const container = document.getElementById("insights-content");
+        container.innerHTML = `
+                <div class="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                        <p class="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2">Topic Summary</p>
+                        <p class="text-xs text-slate-600 leading-relaxed">${
+                          data.summary
+                        }</p>
+                    </div>
+
+                    <div class="bg-indigo-600 p-5 rounded-2xl shadow-lg">
+                        <p class="text-[10px] font-black text-indigo-100 uppercase tracking-widest mb-3 flex items-center gap-2">
+                           <i class="fas fa-info-circle"></i> Research Extension
+                        </p>
+                        <ul class="space-y-3">
+                            ${data.facts
+                              .map(
+                                (f) =>
+                                  `<li class="text-[11px] text-white leading-relaxed flex gap-2"><span>•</span> ${f}</li>`
+                              )
+                              .join("")}
+                        </ul>
+                    </div>
+
+                    <div class="bg-slate-900 p-5 rounded-2xl shadow-sm">
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Exam Preparation</p>
+                        <ul class="space-y-3">
+                            ${data.exam_questions
+                              .map(
+                                (q) =>
+                                  `<li class="text-[11px] text-slate-200 leading-relaxed italic">"${q}"</li>`
+                              )
+                              .join("")}
+                        </ul>
+                    </div>
+                </div>
+            `;
+      }
+
+      function setEngineState(loading, message = "Workspace Ready") {
+        isProcessing = loading;
+        const sortBtn = document.getElementById("ai-process-btn");
+        const addBtn = document.getElementById("ai-insight-btn");
+        const status = document.getElementById("ai-status");
+        const editor = document.getElementById("editor-container");
+
+        if (loading) {
+          sortBtn.disabled = addBtn.disabled = true;
+          sortBtn.innerHTML = `<i class="fas fa-sync fa-spin"></i> Engine Working`;
+          status.innerText = message;
+          editor.classList.add("loading-shimmer", "engine-active");
+        } else {
+          sortBtn.disabled = addBtn.disabled = false;
+          sortBtn.innerHTML = `<i class="fas fa-bolt"></i> Autonomous Fix & Sort`;
+          editor.classList.remove("loading-shimmer", "engine-active");
+        }
+      }
+
+      function syncRealTime() {
+        if (!currentNote) return;
+        currentNote.title = document.getElementById("note-title").value;
+        currentNote.content = document.getElementById("note-content").value;
+        currentNote.category =
+          document.getElementById("note-category").value || "UNSORTED";
+        currentNote.lastEdited = new Date().toISOString();
+
+        const idx = notes.findIndex((n) => n.id === currentNote.id);
+        if (idx >= 0) notes[idx] = { ...currentNote };
+        else notes.unshift({ ...currentNote });
+
+        renderNotes();
+        localStorage.setItem("studyhub_v10", JSON.stringify(notes));
+      }
+
+      function renderNotes() {
+        const query = document
+          .getElementById("search-input")
+          .value.toLowerCase();
+        const grid = document.getElementById("notes-grid");
+        let filtered = notes.filter(
+          (n) =>
+            (activeCategory === "All Notes" || n.category === activeCategory) &&
+            (n.title.toLowerCase().includes(query) ||
+              n.content.toLowerCase().includes(query))
+        );
+
+        grid.innerHTML = "";
+        filtered.forEach((note) => {
+          const card = document.createElement("div");
+          card.className = `bg-white rounded-3xl p-6 border border-slate-100 shadow-sm cursor-pointer hover:shadow-xl transition-all h-64 flex flex-col group relative`;
+          card.onclick = () => openEditor(note);
+          card.innerHTML = `
+                    <div class="mb-4 flex justify-between items-start">
+                        <span class="text-[9px] font-black uppercase text-indigo-500 bg-indigo-50 px-2.5 py-1 rounded-full tracking-wider">${
+                          note.category
+                        }</span>
+                        ${
+                          note.aiInsights
+                            ? '<i class="fas fa-sparkles text-amber-400 text-xs"></i>'
+                            : ""
+                        }
+                    </div>
+                    <h3 class="font-extrabold text-slate-800 text-lg line-clamp-2 mb-2 group-hover:text-indigo-600 transition-colors">${
+                      note.title || "Draft"
+                    }</h3>
+                    <p class="text-slate-400 text-xs line-clamp-4 flex-1 font-medium leading-relaxed">${
+                      note.content || "Empty note..."
+                    }</p>
+                    <div class="mt-4 pt-4 border-t border-slate-50 flex justify-between items-center text-[9px] font-bold text-slate-400">
+                         <span><i class="far fa-clock mr-1"></i> ${new Date(
+                           note.lastEdited
+                         ).toLocaleDateString()}</span>
+                         <button onclick="event.stopPropagation(); deleteNote('${
+                           note.id
+                         }')" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><i class="fas fa-trash-alt"></i></button>
+                    </div>`;
+          grid.appendChild(card);
+        });
+        updateCategoryList();
+      }
+
+      function openEditor(note = null) {
+        currentNote = note
+          ? { ...note }
+          : {
+              id: Date.now().toString(),
+              title: "",
+              content: "",
+              category: "",
+              lastEdited: new Date().toISOString(),
+            };
+        document.getElementById("note-title").value = currentNote.title;
+        document.getElementById("note-content").value = currentNote.content;
+        document.getElementById("note-category").value = currentNote.category;
+
+        if (currentNote.aiInsights) renderInsights(currentNote.aiInsights);
+        else
+          document.getElementById(
+            "insights-content"
+          ).innerHTML = `<div class="text-center py-20 opacity-30"><i class="fas fa-microchip text-3xl mb-4 block"></i><p class="text-[10px] font-bold uppercase">Trigger Engine Analysis</p></div>`;
+
+        document.getElementById("editor-modal").classList.remove("hidden");
+      }
+
+      function closeEditor() {
+        document.getElementById("editor-modal").classList.add("hidden");
+        currentNote = null;
+        renderNotes();
+      }
+      function deleteNote(id) {
+        if (!confirm("Delete note?")) return;
+        notes = notes.filter((n) => n.id !== id);
+        localStorage.setItem("studyhub_v10", JSON.stringify(notes));
+        renderNotes();
+      }
+      function filterCategory(cat) {
+        activeCategory = cat;
+        document.getElementById("current-category-label").innerText = cat;
+        renderNotes();
+      }
+
+      function updateCategoryList() {
+        const list = document.getElementById("category-list");
+        const cats = [...new Set(notes.map((n) => n.category))]
+          .filter(Boolean)
+          .sort();
+        list.innerHTML = "";
+        cats.forEach((c) => {
+          const btn = document.createElement("button");
+          btn.onclick = () => filterCategory(c);
+          btn.className = `w-full text-left px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+            activeCategory === c
+              ? "bg-indigo-50 text-indigo-700"
+              : "text-slate-500 hover:bg-slate-50"
+          }`;
+          btn.innerHTML = `<i class="fas fa-circle text-[6px] mr-3 ${
+            activeCategory === c ? "text-indigo-500" : "text-slate-300"
+          }"></i> ${c}`;
+          list.appendChild(btn);
+        });
+      }
+
+      function toggleSidebar() {
+        document
+          .getElementById("sidebar")
+          .classList.toggle("-translate-x-full");
+      }
+      window.onload = renderNotes;
+    </script>
+  </body>
+</html>
